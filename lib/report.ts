@@ -1,13 +1,25 @@
 import type { SeasonStats } from "./player.ts";
 export type ReportSection = { title: string; fact: string; interpretation: string };
 
-export function validateStats(stats: SeasonStats): void {
-  for (const [key, value] of Object.entries(stats)) {
-    if (!Number.isFinite(value) || value < 0) throw new Error(`Invalid statistic: ${key}`);
+export function validateStats(stats: unknown): asserts stats is SeasonStats {
+  if (typeof stats !== "object" || stats === null || Array.isArray(stats)) {
+    throw new Error("A report requires a statistics object.");
   }
-  if (!Number.isInteger(stats.games) || stats.games === 0) throw new Error("A report requires played games.");
+  const values = stats as Record<string, unknown>;
+  const requiredFields = {
+    games: true, minutes: true, points: true, rebounds: true, assists: true,
+    fieldGoalPct: true, threePointPct: true, freeThrowPct: true,
+    threePointAttempts: true, turnovers: true, steals: true, blocks: true,
+  } satisfies Record<keyof SeasonStats, true>;
+  for (const key of Object.keys(requiredFields)) {
+    const value = values[key];
+    if (!Object.hasOwn(values, key) || typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+      throw new Error(`Invalid statistic: ${key}`);
+    }
+  }
+  if (!Number.isInteger(values.games) || values.games === 0) throw new Error("A report requires played games.");
   for (const key of ["fieldGoalPct", "threePointPct", "freeThrowPct"] as const) {
-    if (stats[key] > 100) throw new Error(`Invalid percentage: ${key}`);
+    if ((values[key] as number) > 100) throw new Error(`Invalid percentage: ${key}`);
   }
 }
 

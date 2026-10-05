@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { player, matchesPlayer } from "../lib/player.ts";
-import { generateReport } from "../lib/report.ts";
+import { generateReport, validateStats } from "../lib/report.ts";
 
 test("search recognizes name, aliases, case, and whitespace without matching an empty query", () => {
   for (const query of ["Stephen Curry", " CURRY ", "steph", "Steph   Curry"]) assert.equal(matchesPlayer(query), true);
@@ -32,4 +32,22 @@ test("zero turnovers does not produce Infinity or a made-up ratio", () => {
   const report = generateReport({...player.stats, turnovers: 0});
   assert.match(report[2].fact, /ratio is unavailable/);
   assert.doesNotMatch(report[2].fact, /Infinity|NaN/);
+});
+
+test("every required statistic must be present and numeric before report formatting", () => {
+  for (const key of Object.keys(player.stats)) {
+    const incomplete: Record<string, unknown> = {...player.stats};
+    delete incomplete[key];
+    assert.throws(() => validateStats(incomplete), {message: `Invalid statistic: ${key}`});
+    for (const value of [undefined, null, "0", NaN, Infinity, -1]) {
+      assert.throws(() => validateStats({...player.stats, [key]: value}), {message: `Invalid statistic: ${key}`});
+    }
+  }
+});
+
+test("malformed statistics containers are rejected explicitly", () => {
+  for (const value of [null, undefined, [], "stats", 42]) {
+    assert.throws(() => validateStats(value), {message: "A report requires a statistics object."});
+  }
+  assert.throws(() => validateStats(Object.create(player.stats)), /Invalid statistic/);
 });
